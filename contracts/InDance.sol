@@ -10,6 +10,11 @@ contract InDance is Ownable, ERC20 {
         uint256 params;
     }
 
+    struct Tuple {
+        uint256 elem1;
+        uint256 elem2;
+    }
+
     struct DancerBuyData {
         uint256 level;
         uint256 coinsPerMinute;
@@ -18,18 +23,33 @@ contract InDance is Ownable, ERC20 {
 
     struct DanceFloor {
         Dancer[9] dancers;
-        uint256 base_tokens_per_minute;
+        uint256 base_tokens_per_second;
     }
 
     mapping(address => DanceFloor[]) floors;
     mapping(address => uint256) floors_num;
     mapping(address => uint256) last_claimed;
-    mapping(address => uint256) tokens_per_minute;
+    mapping(address => uint256) tokens_per_second;
 
     uint256 constant FLOOR_PRICE = 100;
-    uint256 constant INITIAL_TOKEN_DROP = 5;
+    uint256 constant INITIAL_TOKEN_DROP = 10;
 
     constructor() Ownable(msg.sender) ERC20("In Dance", "IND") {}
+
+    function getGameData(address user) external view returns (Tuple[10] memory result) {
+        uint256 lastFloorId = floors_num[user];
+        Dancer[9] memory floor = getDanceFloor(user, lastFloorId);
+
+        for (uint256 i = 0; i < 9; i++) {
+            result[i] = Tuple(floor[i].level, floor[i].params);
+        }
+
+        uint256 balance = balanceOf(user);
+        uint256 claimable = this.getClaimable(user);
+        uint256 userTokensPerSecond = tokens_per_second[user];
+        result[9].elem1 = balance + claimable;
+        result[9].elem2 = userTokensPerSecond;
+    }
 
     function getDancersToBuy() public pure returns (DancerBuyData[5] memory) {
         return [
@@ -47,12 +67,12 @@ contract InDance is Ownable, ERC20 {
         uint256 claimPending = 0;
 
         if (lastClaimedTime > 0) {
-            uint256 userTokensPerMinute = tokens_per_minute[user];
+            uint256 userTokensPerMinute = tokens_per_second[user];
             uint256 timeDiff = block.timestamp - lastClaimedTime;
             claimPending += timeDiff * userTokensPerMinute;
         }
 
-        return claim_ + claimPending;
+        return claimPending;
     }
 
     function claim() public returns (uint256 totalClaim) {
@@ -108,10 +128,10 @@ contract InDance is Ownable, ERC20 {
             revert("FULL");
         }
 
-        floors[msg.sender][lastFloorId].base_tokens_per_minute +=
+        floors[msg.sender][lastFloorId].base_tokens_per_second +=
             buyData.coinsPerMinute *
             10 ** 18;
-        tokens_per_minute[msg.sender] += buyData.coinsPerMinute * 10 ** 18;
+        tokens_per_second[msg.sender] += buyData.coinsPerMinute * 10 ** 18;
 
         floors[msg.sender][lastFloorId].dancers[lastDancerId].level = level;
         floors[msg.sender][lastFloorId].dancers[lastDancerId].params = block
@@ -166,7 +186,7 @@ contract InDance is Ownable, ERC20 {
             return 0;
         }
 
-        uint256 userTokensPerMinute = tokens_per_minute[user];
+        uint256 userTokensPerMinute = tokens_per_second[user];
         uint256 timeDiff = block.timestamp - lastClaimedTime;
 
         claimPending += timeDiff * userTokensPerMinute;
