@@ -38,6 +38,14 @@ contract InDance is Ownable, ERC20 {
 
     function getGameData(address user) external view returns (Tuple[10] memory result) {
         uint256 lastFloorId = floors_num[user];
+
+        if (lastFloorId == 0) {
+            revert("NOFL");
+        }
+
+        // Compatibility with rust contracts
+        lastFloorId -= 1;
+
         Dancer[9] memory floor = getDanceFloor(user, lastFloorId);
 
         for (uint256 i = 0; i < 9; i++) {
