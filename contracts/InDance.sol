@@ -24,10 +24,10 @@ contract InDance is Ownable, ERC20 {
     mapping(address => DanceFloor[]) floors;
     mapping(address => uint256) floors_num;
     mapping(address => uint256) last_claimed;
-    mapping(address => uint256) claims;
     mapping(address => uint256) tokens_per_minute;
 
     uint256 constant FLOOR_PRICE = 100;
+    uint256 constant INITIAL_TOKEN_DROP = 5;
 
     constructor() Ownable(msg.sender) ERC20("In Dance", "IND") {}
 
@@ -42,7 +42,6 @@ contract InDance is Ownable, ERC20 {
     }
 
     function getClaimable(address user) public view returns (uint256) {
-        uint256 claim_ = claims[user];
         uint256 lastClaimedTime = last_claimed[user];
 
         uint256 claimPending = 0;
@@ -119,7 +118,7 @@ contract InDance is Ownable, ERC20 {
             .timestamp;
     }
 
-    function buyFloor(uint256 level) public {
+    function buyFloor() public {
         uint256 floorsNum = floors_num[msg.sender];
 
         // Only first floor is free
@@ -148,6 +147,8 @@ contract InDance is Ownable, ERC20 {
             if (lastDancerId < 9) {
                 revert("NOTF");
             }
+        } else {
+            _update(address(0), msg.sender, INITIAL_TOKEN_DROP * 10 ** 18);
         }
 
         floors_num[msg.sender] += 1;
@@ -155,8 +156,9 @@ contract InDance is Ownable, ERC20 {
     }
 
     function _claim(address user) private returns (uint256 totalClaim) {
-        uint256 claim_ = claims[user];
         uint256 lastClaimedTime = last_claimed[user];
+
+        last_claimed[user] = block.timestamp;
 
         uint256 claimPending = 0;
 
@@ -169,8 +171,7 @@ contract InDance is Ownable, ERC20 {
 
         claimPending += timeDiff * userTokensPerMinute;
 
-        last_claimed[user] = block.timestamp;
 
-        totalClaim = claim_ + claimPending;
+        totalClaim = claimPending;
     }
 }
